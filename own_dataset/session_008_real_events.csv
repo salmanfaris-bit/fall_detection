@@ -1,0 +1,4 @@
+label,category,start_s,end_s,duration_s,session_num
+idle,adl,0.0,1.093,1.093,8
+idle_standing,adl,1.093,5.953,4.859,8
+walking,adl,5.953,69.655,63.702,8

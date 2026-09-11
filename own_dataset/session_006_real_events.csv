@@ -1,0 +1,14 @@
+label,category,start_s,end_s,duration_s,session_num
+idle,adl,0.0,1.504,1.504,6
+idle_standing,adl,1.504,2.714,1.209,6
+walking,adl,2.714,6.795,4.082,6
+idle_standing,adl,6.795,11.843,5.048,6
+fall_sitting,fall,11.843,15.166,3.323,6
+standing_up,adl,15.166,21.255,6.089,6
+fall_sitting,fall,21.255,27.251,5.996,6
+standing_up,adl,27.251,33.958,6.707,6
+fall_sitting,fall,33.958,40.26,6.302,6
+standing_up,adl,40.26,46.416,6.156,6
+fall_sitting,fall,46.416,51.976,5.56,6
+standing_up,adl,51.976,58.003,6.027,6
+idle_standing,adl,58.003,59.104,1.1,6

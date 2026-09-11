@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fall/ADL Calibration Recorder</title>
+<style>
+  :root {
+    --bg: #12161c;
+    --panel: #1a1f27;
+    --panel-2: #202631;
+    --line: #2a3140;
+    --text: #e8ecf1;
+    --muted: #8b96a8;
+    --teal: #4fd1c5;
+    --amber: #e8a33d;
+    --red: #e05b5b;
+    --green: #5bc98a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+  #hw-badge {
+    font-family: var(--mono); font-size: 12px; padding: 4px 9px;
+    border-radius: 5px; border: 1px solid var(--line); color: var(--muted);
+  }
+  #hw-badge.real { color: var(--green); border-color: rgba(91,201,138,0.35); }
+  #hw-badge.mock { color: var(--amber); border-color: rgba(232,163,61,0.4); }
+  .subtitle { font-size: 12.5px; color: var(--muted); margin: 0 0 22px; line-height: 1.5; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .stage { text-align: center; padding: 10px 0 4px; }
+  .timer { font-family: var(--mono); font-size: 40px; font-weight: 600; letter-spacing: 1px; margin: 4px 0; }
+  .timer.idle { color: var(--muted); }
+  .timer.rec { color: var(--red); }
+  .status-line { font-size: 13px; color: var(--muted); min-height: 18px; }
+  .current-pill {
+    display: inline-block; font-family: var(--mono); font-size: 13px;
+    padding: 5px 12px; border-radius: 20px; margin-top: 6px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--teal);
+  }
+  .current-pill.fall { color: var(--red); border-color: rgba(224,91,91,0.4); }
+
+  .big-btn {
+    width: 100%; padding: 16px; border-radius: 9px; border: none;
+    font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 16px;
+  }
+  .big-btn.start { background: var(--teal); color: #0b1310; }
+  .big-btn.stop { background: var(--red); color: #1a0d0d; }
+  .big-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .preset-label { font-size: 11.5px; color: var(--muted); margin: 18px 0 8px; }
+  .preset-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 12.5px; padding: 9px 12px;
+    border-radius: 7px; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text); cursor: pointer;
+  }
+  .preset-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .preset-btn.adl:hover:not(:disabled) { border-color: var(--teal); }
+  .preset-btn.fall { border-color: rgba(224,91,91,0.4); color: var(--red); }
+  .preset-btn.fall:hover:not(:disabled) { border-color: var(--red); background: rgba(224,91,91,0.1); }
+  .preset-btn.active { background: rgba(79,209,197,0.18); border-color: var(--teal); }
+  .preset-btn.fall.active { background: rgba(224,91,91,0.22); border-color: var(--red); }
+
+  .custom-row { display: flex; gap: 8px; margin-top: 12px; }
+  .custom-row input[type="text"] {
+    flex: 1; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 7px; color: var(--text); padding: 9px 12px; font-size: 13px;
+    font-family: var(--mono);
+  }
+  .custom-row select {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+    color: var(--text); font-size: 13px; padding: 9px 10px;
+  }
+  .custom-row button {
+    padding: 9px 16px; border-radius: 7px; border: none; background: var(--panel-2);
+    color: var(--text); border: 1px solid var(--line); cursor: pointer; font-size: 13px;
+  }
+  .custom-row button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  #err { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 16px; }
+
+  .timeline { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 16px; max-height: 260px; overflow-y: auto; }
+  .timeline-row {
+    display: flex; justify-content: space-between; font-family: var(--mono);
+    font-size: 12.5px; padding: 7px 10px; border-radius: 6px; background: var(--panel-2);
+  }
+  .timeline-row.fall { background: rgba(224,91,91,0.13); color: var(--red); }
+  .timeline-row .dur { color: var(--muted); }
+
+  .pending-stats {
+    display: flex; gap: 14px; font-family: var(--mono); font-size: 13px;
+    color: var(--muted); margin: 4px 0 16px; flex-wrap: wrap;
+  }
+  .pending-stats b { color: var(--text); }
+  .confirm-row { display: flex; gap: 10px; }
+  .confirm-row button {
+    flex: 1; padding: 12px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .confirm-row .save { background: var(--green); color: #0b1310; }
+  .confirm-row .discard { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+  .totals { display: flex; gap: 18px; margin-top: 12px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .totals b { color: var(--text); }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fall / ADL Calibration Recorder</h1>
+    <span id="hw-badge">checking sensors…</span>
+  </header>
+  <p class="subtitle">One session = one continuous recording. Tap a button whenever the activity changes — the sensor never stops, so transitions between activities end up in the data, matching how the model sees live sliding windows.</p>
+
+  <div class="panel" id="session-panel">
+    <h2>Session</h2>
+    <div class="stage">
+      <div class="status-line" id="status-line">Press Start to begin a session.</div>
+      <div class="timer idle" id="timer">00:00.0</div>
+      <div class="current-pill" id="current-pill" style="display:none;">idle</div>
+      <button class="big-btn start" id="main-btn">Start session</button>
+      <div id="err"></div>
+    </div>
+
+    <div id="preset-block" style="display:none;">
+      <div class="preset-label">Tap when activity changes — ADLs</div>
+      <div class="preset-grid" id="adl-grid">
+        {% for a in preset_adls %}
+        <button class="preset-btn adl" data-label="{{ a }}" data-cat="adl" disabled>{{ a }}</button>
+        {% endfor %}
+      </div>
+      <div class="preset-label">Falls (onto mat, spotter present)</div>
+      <div class="preset-grid" id="fall-grid">
+        {% for f in preset_falls %}
+        <button class="preset-btn fall" data-label="{{ f }}" data-cat="fall" disabled>{{ f }}</button>
+        {% endfor %}
+      </div>
+      <div class="preset-label">Custom label</div>
+      <div class="custom-row">
+        <input type="text" id="custom-label" placeholder="e.g. dancing" disabled>
+        <select id="custom-cat" disabled>
+          <option value="adl">adl</option>
+          <option value="fall">fall</option>
+        </select>
+        <button id="custom-mark-btn" disabled>Mark</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="pending-panel" style="display:none;">
+    <h2>Review this session</h2>
+    <div class="pending-stats">
+      <div>duration: <b id="p-duration">–</b></div>
+      <div>events: <b id="p-events">–</b></div>
+      <div>falls: <b id="p-falls">–</b></div>
+      <div>peak: <b id="p-peak">–</b> g</div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <div class="confirm-row">
+      <button class="save" id="save-btn">Keep &amp; save session</button>
+      <button class="discard" id="discard-btn">Discard</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Saved sessions</h2>
+    <div id="manifest-area"><div class="empty">No sessions recorded yet.</div></div>
+    <div class="totals" id="totals" style="display:none;">
+      <div>sessions: <b id="session-total">0</b></div>
+      <div>total falls: <b id="fall-total">0</b></div>
+      <div>total time: <b id="time-total">0</b>s</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const mainBtn = document.getElementById('main-btn');
+const timerEl = document.getElementById('timer');
+const statusLine = document.getElementById('status-line');
+const errEl = document.getElementById('err');
+const currentPill = document.getElementById('current-pill');
+const presetBlock = document.getElementById('preset-block');
+const pendingPanel = document.getElementById('pending-panel');
+const hwBadge = document.getElementById('hw-badge');
+
+let phase = 'idle'; // idle | recording | reviewing
+let pollHandle = null;
+
+function setError(msg) { errEl.textContent = msg || ''; }
+
+function fmtElapsed(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toFixed(1).padStart(4, '0');
+  return `${m}:${s}`;
+}
+
+function setPresetButtonsEnabled(enabled) {
+  document.querySelectorAll('.preset-btn, #custom-label, #custom-cat, #custom-mark-btn')
+    .forEach(el => el.disabled = !enabled);
+}
+
+async function pollStatus() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+
+  if (data.imu_is_real) {
+    hwBadge.textContent = 'real sensors'; hwBadge.className = 'real';
+  } else {
+    hwBadge.textContent = 'MOCK sensors'; hwBadge.className = 'mock';
+  }
+
+  if (phase === 'recording') {
+    timerEl.textContent = fmtElapsed(data.elapsed_s);
+    currentPill.style.display = 'inline-block';
+    currentPill.textContent = data.current_label;
+    currentPill.className = 'current-pill' + (data.current_category === 'fall' ? ' fall' : '');
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.label === data.current_label);
+    });
+    statusLine.textContent = `Recording — ${data.samples} samples, ${data.n_events_closed} events marked.`;
+  }
+}
+
+function startPolling() {
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = setInterval(pollStatus, 300);
+}
+function stopPolling() {
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = null;
+}
+
+async function startSession() {
+  setError('');
+  const res = await fetch('/api/start', { method: 'POST' });
+  const data = await res.json();
+  if (data.error) { setError(data.error); return; }
+  phase = 'recording';
+  timerEl.className = 'timer rec';
+  statusLine.textContent = 'Recording — currently: idle';
+  mainBtn.textContent = 'Stop session';
+  mainBtn.className = 'big-btn stop';
+  presetBlock.style.display = 'block';
+  setPresetButtonsEnabled(true);
+  startPolling();
+}
+
+async function markEvent(label, category) {
+  setError('');
+  const res = await fetch('/api/mark', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label, category }),
+  });
+  const data = await res.json();
+  if (data.error) setError(data.error);
+}
+
+async function stopSession() {
+  setError('');
+  mainBtn.disabled = true;
+  stopPolling();
+  const res = await fetch('/api/stop', { method: 'POST' });
+  const data = await res.json();
+  mainBtn.disabled = false;
+  if (data.error) { setError(data.error); return; }
+
+  phase = 'reviewing';
+  timerEl.className = 'timer idle';
+  timerEl.textContent = fmtElapsed(data.duration_s);
+  currentPill.style.display = 'none';
+  statusLine.textContent = 'Stopped. Review the timeline below, then keep or discard.';
+  presetBlock.style.display = 'none';
+  mainBtn.style.display = 'none';
+
+  document.getElementById('p-duration').textContent = `${data.duration_s}s`;
+  document.getElementById('p-events').textContent = data.n_events;
+  document.getElementById('p-falls').textContent = data.n_falls;
+  document.getElementById('p-peak').textContent = data.peak_accel_g ?? '–';
+
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = data.events.map(e => `
+    <div class="timeline-row ${e.category === 'fall' ? 'fall' : ''}">
+      <span>${e.start_s}s – ${e.end_s}s &nbsp; ${e.label}</span>
+      <span class="dur">${e.duration_s}s</span>
+    </div>`).join('');
+
+  pendingPanel.style.display = 'block';
+}
+
+function resetToIdle() {
+  phase = 'idle';
+  timerEl.className = 'timer idle';
+  timerEl.textContent = '00:00.0';
+  statusLine.textContent = 'Press Start to begin a session.';
+  mainBtn.textContent = 'Start session';
+  mainBtn.className = 'big-btn start';
+  mainBtn.style.display = 'block';
+  pendingPanel.style.display = 'none';
+}
+
+mainBtn.addEventListener('click', () => {
+  if (phase === 'idle') startSession();
+  else if (phase === 'recording') stopSession();
+});
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (phase !== 'recording') return;
+    markEvent(btn.dataset.label, btn.dataset.cat);
+  });
+});
+
+document.getElementById('custom-mark-btn').addEventListener('click', () => {
+  if (phase !== 'recording') return;
+  const label = document.getElementById('custom-label').value.trim();
+  if (!label) { setError('Enter a custom label first.'); return; }
+  const cat = document.getElementById('custom-cat').value;
+  markEvent(label, cat);
+  document.getElementById('custom-label').value = '';
+});
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  await fetch('/api/save', { method: 'POST' });
+  resetToIdle();
+  refreshManifest();
+});
+
+document.getElementById('discard-btn').addEventListener('click', async () => {
+  await fetch('/api/discard', { method: 'POST' });
+  resetToIdle();
+});
+
+async function refreshManifest() {
+  const res = await fetch('/api/manifest');
+  const data = await res.json();
+  const area = document.getElementById('manifest-area');
+
+  if (!data.sessions.length) {
+    area.innerHTML = '<div class="empty">No sessions recorded yet.</div>';
+    document.getElementById('totals').style.display = 'none';
+    return;
+  }
+  const rows = data.sessions.slice().reverse().map(s => `
+    <tr>
+      <td>${s.session_num}</td>
+      <td class="num">${s.duration_s}s</td>
+      <td class="num">${s.n_events}</td>
+      <td class="num">${s.n_falls}</td>
+      <td class="num">${s.peak_accel_g || '–'}</td>
+      <td>${s.source === 'real_hardware' ? 'real' : 'mock'}</td>
+    </tr>`).join('');
+  area.innerHTML = `<table>
+    <thead><tr><th>#</th><th class="num">dur</th><th class="num">events</th><th class="num">falls</th><th class="num">peak g</th><th>src</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+
+  document.getElementById('session-total').textContent = data.sessions.length;
+  document.getElementById('fall-total').textContent = data.total_falls;
+  document.getElementById('time-total').textContent = data.total_duration_s;
+  document.getElementById('totals').style.display = 'flex';
+}
+
+pollStatus();
+refreshManifest();
+</script>
+</body>
+</html>
